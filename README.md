@@ -24,14 +24,20 @@ Open http://127.0.0.1:8000/docs for Swagger UI with interactive examples.
 
 ### 3. Run tests
 ```cmd
-pytest tests/ -v
+python -m pytest tests/ -v
 ```
 
-### 4. Run specific test file
+### 4. Run specific test directory
 ```cmd
-pytest tests/test_products.py -v
-pytest tests/test_orders.py -v
-pytest tests/test_webhooks.py -v
+python -m pytest tests/unit -v
+python -m pytest tests/integration -v
+```
+
+### 5. Run specific test file
+```cmd
+python -m pytest tests/integration/test_products.py -v
+python -m pytest tests/integration/test_orders.py -v
+python -m pytest tests/integration/test_webhooks.py -v
 ```
 
 ## Project Structure
@@ -45,10 +51,16 @@ src/app/
   └── database/            # SQLAlchemy session and engine setup
 
 tests/
-  ├── conftest.py          # Pytest fixtures (test client, in-memory DB)
-  ├── test_products.py     # Product CRUD endpoint tests
-  ├── test_orders.py       # Order CRUD and status transition tests
-  └── test_webhooks.py     # Webhook security and payment processing tests
+  ├── unit/
+  │   ├── conftest.py              # Unit test fixtures
+  │   ├── test_product_crud.py     # Product CRUD unit tests
+  │   ├── test_order_crud.py       # Order CRUD unit tests
+  │   └── test_webhook_crud.py     # Webhook CRUD unit tests
+  └── integration/
+      ├── conftest.py              # Integration test fixtures
+      ├── test_products.py         # Product API endpoint tests
+      ├── test_orders.py           # Order API endpoint tests
+      └── test_webhooks.py         # Webhook API endpoint tests
 
 requirements.txt           # Pinned dependencies
 .venv/                     # Virtual environment (created)
@@ -123,20 +135,30 @@ Example:
 
 ### Full test suite
 ```cmd
-pytest tests/ -v
+python -m pytest tests/ -v
+```
+
+### Run unit tests only
+```cmd
+python -m pytest tests/unit -v
+```
+
+### Run integration tests only
+```cmd
+python -m pytest tests/integration -v
 ```
 
 ### With coverage report
 ```cmd
-pytest tests/ --cov=src.app --cov-report=term-missing
+python -m pytest tests/ --cov=src.app --cov-report=term-missing
 ```
 
 ### Run specific test class
 ```cmd
-pytest tests/test_products.py::TestProductCreate -v
+python -m pytest tests/integration/test_products.py::TestProductCreate -v
 ```
 
 ### Run single test
 ```cmd
-pytest tests/test_webhooks.py::TestWebhookReplayProtection::test_webhook_idempotent_replay_same_event_id -v
+python -m pytest tests/integration/test_webhooks.py::TestWebhookReplayProtection::test_webhook_idempotent_replay_same_event_id -v
 ```

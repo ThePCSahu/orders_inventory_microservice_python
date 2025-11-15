@@ -5,6 +5,8 @@ The test suite has been reorganized into **Unit Tests** and **Integration Tests*
 
 - **Total Tests**: 73 (28 unit tests + 45 integration tests)
 - **All Passing** ✅
+- **Execution Time**: < 2 seconds
+- **Dependencies**: FastAPI 0.121.2, SQLAlchemy 2.0.44, Starlette 0.49.3, Pytest 9.0.1
 
 ## Directory Structure
 
@@ -90,28 +92,33 @@ tests/
 ## Running Tests
 
 ### Run all tests:
-```bash
-pytest tests/
+```cmd
+python -m pytest tests/ -v
 ```
 
 ### Run only unit tests:
-```bash
-pytest tests/unit -v
+```cmd
+python -m pytest tests/unit -v
 ```
 
 ### Run only integration tests:
-```bash
-pytest tests/integration -v
+```cmd
+python -m pytest tests/integration -v
 ```
 
 ### Run specific test class:
-```bash
-pytest tests/unit/test_product_crud.py::TestProductCRUD -v
+```cmd
+python -m pytest tests/unit/test_product_crud.py::TestProductCRUD -v
 ```
 
 ### Run specific test:
-```bash
-pytest tests/integration/test_products.py::TestProductCreate::test_create_product_success -v
+```cmd
+python -m pytest tests/integration/test_products.py::TestProductCreate::test_create_product_success -v
+```
+
+### Run with coverage:
+```cmd
+python -m pytest tests/ --cov=src.app --cov-report=term-missing
 ```
 
 ## Test Fixture Organization
