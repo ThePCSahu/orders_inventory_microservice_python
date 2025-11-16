@@ -1,12 +1,34 @@
 # Test Suite Organization
 
 ## Overview
-The test suite has been reorganized into **Unit Tests** and **Integration Tests** for better separation of concerns and maintainability.
+The test suite has been reorganized into **Unit Tests**, **Integration Tests**, and **Load Tests** for better separation of concerns and maintainability.
 
 - **Total Tests**: 73 (28 unit tests + 45 integration tests)
 - **All Passing** ✅
 - **Execution Time**: < 2 seconds
-- **Dependencies**: FastAPI 0.121.2, SQLAlchemy 2.0.44, Starlette 0.49.3, Pytest 9.0.1
+- **Dependencies**: FastAPI 0.121.2, SQLAlchemy 2.0.44, Starlette 0.49.3, Pytest 9.0.1, pytest-html 4.1.1, pytest-cov 5.0.0, Locust 2.31.0
+
+## Test Reports Structure
+
+All test reports are automatically saved in the `test-reports/` directory:
+
+```
+test-reports/
+├── unit/
+│   ├── report.html              # Unit test HTML report
+│   └── coverage/
+│       └── index.html           # Unit test coverage report
+├── integration/
+│   ├── report.html              # Integration test HTML report
+│   └── coverage/
+│       └── index.html           # Integration test coverage report
+└── load/
+    ├── locust_light.html        # Light load test report
+    ├── locust_heavy.html        # Heavy load test report
+    ├── locust_light_stats.csv   # Light load statistics
+    ├── locust_heavy_stats.csv   # Heavy load statistics
+    └── [additional CSV files]   # Failures, exceptions, stats history
+```
 
 ## Directory Structure
 
@@ -91,35 +113,107 @@ tests/
 
 ## Running Tests
 
-### Run all tests:
+All test reports are saved in the `test-reports/` directory, organized by test type:
+- `test-reports/unit/` - Unit test reports
+- `test-reports/integration/` - Integration test reports
+- `test-reports/load/` - Load test reports
+
+### Unit Tests
+
+**Run unit tests with HTML report and coverage:**
 ```cmd
-python -m pytest tests/ -v
+python -m pytest tests/unit -v --html=test-reports/unit/report.html --self-contained-html --cov=src.app --cov-report=html:test-reports/unit/coverage --cov-report=term-missing
 ```
 
-### Run only unit tests:
+**Run unit tests (simple, no reports):**
 ```cmd
 python -m pytest tests/unit -v
 ```
 
-### Run only integration tests:
-```cmd
-python -m pytest tests/integration -v
-```
-
-### Run specific test class:
+**Run specific unit test class:**
 ```cmd
 python -m pytest tests/unit/test_product_crud.py::TestProductCRUD -v
 ```
 
-### Run specific test:
+**Run specific unit test:**
+```cmd
+python -m pytest tests/unit/test_product_crud.py::TestProductCRUD::test_create_product_success -v
+```
+
+**Generated Reports:**
+- `test-reports/unit/report.html` - HTML test report with pass/fail status
+- `test-reports/unit/coverage/index.html` - Code coverage report (open in browser)
+
+### Integration Tests
+
+**Run integration tests with HTML report and coverage:**
+```cmd
+python -m pytest tests/integration -v --html=test-reports/integration/report.html --self-contained-html --cov=src.app --cov-report=html:test-reports/integration/coverage --cov-report=term-missing
+```
+
+**Run integration tests (simple, no reports):**
+```cmd
+python -m pytest tests/integration -v
+```
+
+**Run specific integration test class:**
+```cmd
+python -m pytest tests/integration/test_products.py::TestProductCreate -v
+```
+
+**Run specific integration test:**
 ```cmd
 python -m pytest tests/integration/test_products.py::TestProductCreate::test_create_product_success -v
 ```
 
-### Run with coverage:
+**Generated Reports:**
+- `test-reports/integration/report.html` - HTML test report with pass/fail status
+- `test-reports/integration/coverage/index.html` - Code coverage report (open in browser)
+
+### Load Tests
+
+**Prerequisites:**
+1. Start the server in one terminal:
 ```cmd
-python -m pytest tests/ --cov=src.app --cov-report=term-missing
+python -m uvicorn src.app.main:app --host 127.0.0.1 --port 8000 --workers 1
 ```
+
+2. Run load tests in another terminal:
+
+**Light load test (25 users, 30 seconds):**
+```cmd
+python -m locust -f tests/load/locustfile.py --headless -u 25 -r 5 --run-time 30s --host http://127.0.0.1:8000 --html=test-reports/load/locust_light.html --csv=test-reports/load/locust_light
+```
+
+**Heavy load test (200 users, 60 seconds):**
+```cmd
+python -m locust -f tests/load/locustfile.py --headless -u 200 -r 20 --run-time 60s --host http://127.0.0.1:8000 --html=test-reports/load/locust_heavy.html --csv=test-reports/load/locust_heavy
+```
+
+**Generated Reports:**
+- `test-reports/load/locust_light.html` - Light load test HTML report
+- `test-reports/load/locust_heavy.html` - Heavy load test HTML report
+- `test-reports/load/locust_light_stats.csv` - Light load test statistics (CSV)
+- `test-reports/load/locust_heavy_stats.csv` - Heavy load test statistics (CSV)
+- Additional CSV files: `*_failures.csv`, `*_exceptions.csv`, `*_stats_history.csv`
+
+### Run All Tests
+
+**Run all tests (unit + integration) with reports:**
+```cmd
+python -m pytest tests/ -v --html=test-reports/report.html --self-contained-html --cov=src.app --cov-report=html:test-reports/coverage --cov-report=term-missing
+```
+
+**Run all tests (simple, no reports):**
+```cmd
+python -m pytest tests/ -v
+```
+
+### Viewing Reports
+
+- **HTML Test Reports**: Open `test-reports/{unit|integration}/report.html` in a web browser
+- **Coverage Reports**: Open `test-reports/{unit|integration}/coverage/index.html` in a web browser
+- **Load Test Reports**: Open `test-reports/load/locust_{light|heavy}.html` in a web browser
 
 ## Test Fixture Organization
 
