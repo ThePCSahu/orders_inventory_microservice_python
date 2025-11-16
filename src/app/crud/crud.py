@@ -42,7 +42,14 @@ def create_product(db: Session, product: schemas.ProductCreate):
 
 
 def update_product(db: Session, product_id: int, product: schemas.ProductCreate):
-    db_product = get_product(db, product_id)
+    """Update a product with locking to prevent race conditions during concurrent updates."""
+    # Use SELECT FOR UPDATE to lock the product row, preventing lost updates
+    db_product = (
+        db.query(models.Product)
+        .filter(models.Product.id == product_id)
+        .with_for_update(nowait=False)
+        .first()
+    )
     if not db_product:
         return None
     db_product.sku = product.sku
@@ -55,7 +62,15 @@ def update_product(db: Session, product_id: int, product: schemas.ProductCreate)
 
 
 def update_product_partial(db: Session, product_id: int, product: schemas.ProductUpdate):
-    db_product = get_product(db, product_id)
+    """Partially update a product with locking to prevent race conditions, especially for stock updates."""
+    # Use SELECT FOR UPDATE to lock the product row, preventing lost updates
+    # This is critical when updating stock to prevent race conditions with order creation
+    db_product = (
+        db.query(models.Product)
+        .filter(models.Product.id == product_id)
+        .with_for_update(nowait=False)
+        .first()
+    )
     if not db_product:
         return None
     # Only update provided fields
@@ -73,7 +88,15 @@ def update_product_partial(db: Session, product_id: int, product: schemas.Produc
 
 
 def delete_product(db: Session, product_id: int):
-    db_product = get_product(db, product_id)
+    """Delete a product with locking to prevent deletion during concurrent operations."""
+    # Use SELECT FOR UPDATE to lock the product row
+    # This prevents deletion while orders are being created or product is being updated
+    db_product = (
+        db.query(models.Product)
+        .filter(models.Product.id == product_id)
+        .with_for_update(nowait=False)
+        .first()
+    )
     if not db_product:
         return None
     db.delete(db_product)
