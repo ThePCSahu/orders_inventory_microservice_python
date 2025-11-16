@@ -82,24 +82,30 @@ def delete_product(db: Session, product_id: int):
 
 
 def create_order(db: Session, order: schemas.OrderCreate):
-    # Perform an atomic conditional update on the product stock. This issues a
-    # SQL UPDATE that decrements stock only when stock >= requested quantity.
-    # The update is executed inside a transaction together with creating the order
-    # so that concurrent attempts are resolved by the DB atomically.
-    rows = (
+    """Create an order with atomic stock decrement using SELECT FOR UPDATE for better concurrency control.
+    
+    Uses pessimistic locking to prevent race conditions under high load.
+    """
+    # Use SELECT FOR UPDATE to lock the product row, preventing concurrent modifications
+    # This ensures that only one transaction can check and update stock at a time
+    product = (
         db.query(models.Product)
-        .filter(models.Product.id == order.product_id, models.Product.stock >= order.quantity)
-        .update({models.Product.stock: models.Product.stock - order.quantity}, synchronize_session=False)
+        .filter(models.Product.id == order.product_id)
+        .with_for_update(nowait=False)  # Wait for lock, don't fail immediately
+        .first()
     )
-    if rows == 0:
-        # Either the product doesn't exist or there's insufficient stock
-        product = db.query(models.Product).filter(models.Product.id == order.product_id).first()
-        if not product:
-            raise ProductNotFoundError("Product not found")
-        else:
-            raise InsufficientStockError("Insufficient stock")
-
-    # Create the order record after successfully decrementing stock
+    
+    if not product:
+        raise ProductNotFoundError("Product not found")
+    
+    # Check stock availability while holding the lock
+    if product.stock < order.quantity:
+        raise InsufficientStockError("Insufficient stock")
+    
+    # Atomically decrement stock
+    product.stock = product.stock - order.quantity
+    
+    # Create the order record
     db_order = models.Order(product_id=order.product_id, quantity=order.quantity)
     db.add(db_order)
     db.commit()  # Commit both the stock update and order creation
@@ -124,9 +130,14 @@ def update_order_status(db: Session, order_id: int, new_status: models.OrderStat
     if new_status not in allowed.get(current, set()):
         # invalid transition
         raise ValueError(f"Invalid transition from {current} to {new_status}")
-    # If canceling, restore stock
+    # If canceling, restore stock with locking to prevent race conditions
     if new_status == models.OrderStatus.CANCELED:
-        product = get_product(db, db_order.product_id)
+        product = (
+            db.query(models.Product)
+            .filter(models.Product.id == db_order.product_id)
+            .with_for_update(nowait=False)
+            .first()
+        )
         if product:
             product.stock = product.stock + db_order.quantity
     db_order.status = new_status
@@ -141,8 +152,13 @@ def delete_order(db: Session, order_id: int):
         return None
     # allow full deletion only for PENDING orders
     if db_order.status == models.OrderStatus.PENDING:
-        # restore stock
-        product = get_product(db, db_order.product_id)
+        # restore stock with locking to prevent race conditions
+        product = (
+            db.query(models.Product)
+            .filter(models.Product.id == db_order.product_id)
+            .with_for_update(nowait=False)
+            .first()
+        )
         if product:
             product.stock = product.stock + db_order.quantity
         db.delete(db_order)

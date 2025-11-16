@@ -2,10 +2,12 @@ from fastapi import FastAPI, HTTPException, Depends, Response, status, Body
 from fastapi import Request
 from sqlalchemy.orm import Session
 from . import models, schemas, crud, database
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, OperationalError
 import os
 import hmac
 import hashlib
+import time
+import random
 
 app = FastAPI(title="Orders Inventory Microservice")
 
@@ -135,18 +137,40 @@ def delete_product(product_id: int, db: Session = Depends(database.get_db)):
 def create_order(order: schemas.OrderCreate, response: Response, db: Session = Depends(database.get_db)):
     """Create an order atomically (stock is decremented atomically). Returns 201 on success with Location header.
 
+    Uses retry logic with exponential backoff for transient database lock conflicts.
     Errors are returned in deterministic shape, for example: {"detail": "Insufficient stock"}.
     """
-    try:
-        db_order = crud.create_order(db, order)
-    except crud.ProductNotFoundError:
-        raise HTTPException(status_code=404, detail="Product not found")
-    except crud.InsufficientStockError:
-        raise HTTPException(status_code=409, detail="Insufficient stock")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    response.headers["Location"] = f"/orders/{db_order.id}"
-    return db_order
+    max_retries = 3
+    base_delay = 0.01  # 10ms base delay
+    
+    for attempt in range(max_retries):
+        try:
+            db_order = crud.create_order(db, order)
+            response.headers["Location"] = f"/orders/{db_order.id}"
+            return db_order
+        except crud.ProductNotFoundError:
+            raise HTTPException(status_code=404, detail="Product not found")
+        except crud.InsufficientStockError:
+            # Don't retry on insufficient stock - it's a business logic error, not a transient issue
+            raise HTTPException(status_code=409, detail="Insufficient stock")
+        except (OperationalError, IntegrityError) as e:
+            # Retry on database lock/timeout errors with exponential backoff
+            if attempt < max_retries - 1:
+                # Exponential backoff with jitter to prevent thundering herd
+                delay = base_delay * (2 ** attempt) + random.uniform(0, 0.01)
+                time.sleep(delay)
+                # Refresh the session to clear any stale state
+                db.rollback()
+                continue
+            else:
+                # Last attempt failed, raise the error
+                raise HTTPException(status_code=503, detail="Service temporarily unavailable, please try again")
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=400, detail=str(e))
+    
+    # Should never reach here, but just in case
+    raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get(

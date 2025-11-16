@@ -6,7 +6,7 @@ The test suite has been reorganized into **Unit Tests**, **Integration Tests**, 
 - **Total Tests**: 73 (28 unit tests + 45 integration tests)
 - **All Passing** ✅
 - **Execution Time**: < 2 seconds
-- **Dependencies**: FastAPI 0.121.2, SQLAlchemy 2.0.44, Starlette 0.49.3, Pytest 9.0.1, pytest-html 4.1.1, pytest-cov 5.0.0, Locust 2.31.0
+- **Dependencies**: FastAPI 0.121.2, SQLAlchemy 2.0.44, Starlette 0.49.3, Pytest 9.0.1, pytest-html 4.1.1, pytest-cov 7.0.0, Locust 2.31.0
 
 ## Test Reports Structure
 
@@ -113,6 +113,11 @@ tests/
 
 ## Running Tests
 
+**Prerequisites**: Install test dependencies first:
+```cmd
+python -m pip install -r requirements.txt
+```
+
 All test reports are saved in the `test-reports/` directory, organized by test type:
 - `test-reports/unit/` - Unit test reports
 - `test-reports/integration/` - Integration test reports
@@ -145,6 +150,8 @@ python -m pytest tests/unit/test_product_crud.py::TestProductCRUD::test_create_p
 - `test-reports/unit/coverage/index.html` - Code coverage report (open in browser)
 
 ### Integration Tests
+
+**Note**: Integration tests may require compatible versions of `httpx` and `starlette`. If you encounter `TypeError: Client.__init__() got an unexpected keyword argument 'app'`, ensure your dependencies are compatible. The commands below are correct; the issue is with dependency versions.
 
 **Run integration tests with HTML report and coverage:**
 ```cmd
