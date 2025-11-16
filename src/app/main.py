@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, Response, status, Body
+from fastapi import FastAPI, HTTPException, Depends, Response, status, Body, APIRouter
 from fastapi import Request
 from sqlalchemy.orm import Session
 from . import models, schemas, crud, database
@@ -13,6 +13,27 @@ app = FastAPI(title="Orders Inventory Microservice")
 
 # Create tables on startup (for this minimal scaffold)
 models.Base.metadata.create_all(bind=database.engine)
+
+# Test routes
+router = APIRouter(prefix="/test", tags=["test"])
+
+@router.post("/reset-db", status_code=status.HTTP_204_NO_CONTENT, include_in_schema=False)
+def reset_database(db: Session = Depends(database.get_db)):
+    """
+    Clear all data from database tables. For testing purposes only.
+    """
+    try:
+        # Delete all data from tables (order matters due to foreign key constraints)
+        db.query(models.WebhookEvent).delete()
+        db.query(models.Order).delete()
+        db.query(models.Product).delete()
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to reset database: {str(e)}")
+
+# Include test routes
+app.include_router(router)
 
 
 @app.post(
